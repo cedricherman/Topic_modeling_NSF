@@ -20,7 +20,8 @@ def extract_xml_tag(input_xml, filename):
         RETURN two dictionaries, one for short information and one for abstracts
     """
     # dictionaries to record data
-    shortinfo = {}
+#    shortinfo = {}
+    award_elements = {}
     abstract = {}
     
     # make soup and extract tags
@@ -32,12 +33,14 @@ def extract_xml_tag(input_xml, filename):
         award_id_string = input_soup.find('AwardID').text
         try:
             award_id = int(award_id_string)
+            award_elements['award_id'] = award_id
         except:
             award_id = award_id_string
+            award_elements['award_id'] = award_id
             warnings.warn('Could NOT convert award id {} to an integer'.format(award_id_string), UserWarning)
 
         # create dictionary for short information
-        award_elements = {}
+#        award_elements = {}
         
         # Title, dates, amount
         award_elements['title'] = input_soup.find('AwardTitle').text
@@ -105,8 +108,8 @@ def extract_xml_tag(input_xml, filename):
                 warnings.warn('Could NOT convert Program element code {} to an integer'.format(code_string), UserWarning)
             award_elements['ProgramElement'].append(this_progelement)
 
-        # add award id as top level key
-        shortinfo[award_id] = award_elements
+#        # add award id as top level key
+#        shortinfo[award_id] = award_elements
         
         # take care of abstract
         this_abstract = input_soup.find('AbstractNarration').text
@@ -118,7 +121,8 @@ def extract_xml_tag(input_xml, filename):
                 'File {} does not comply with xml schema! It will be skipped'.format(os.path.basename(filename)), UserWarning)
         
     # return both dictionaries
-    return shortinfo, abstract
+#    return shortinfo, abstract
+    return award_elements, abstract
 
 
 # In[3]:
@@ -161,14 +165,14 @@ if __name__ == "__main__":
     # get start time of timer for processing time
     start_time = time.time()
     
-    # make sure output csv files do not exist, otherwise delete them
-    short_elements_output = os.path.join(os.pardir,'data', 'interim', 'short_elements.json')   
-    if os.path.isfile(short_elements_output):
-        os.remove(short_elements_output)
-    
-    abstract_output = os.path.join(os.pardir,'data', 'interim', 'abstracts.json')
-    if os.path.isfile(abstract_output):
-        os.remove(abstract_output)
+#    # make sure output csv files do not exist, otherwise delete them
+#    short_elements_output = os.path.join(os.pardir,'data', 'interim', 't_short_elements.json')   
+#    if os.path.isfile(short_elements_output):
+#        os.remove(short_elements_output)
+#    
+#    abstract_output = os.path.join(os.pardir,'data', 'interim', 't_abstracts.json')
+#    if os.path.isfile(abstract_output):
+#        os.remove(abstract_output)
     
     # number of processes (quad cores have 8 CPU, 1 CPU = 1 process at most)
     NUM_PROCESS = 8
@@ -181,6 +185,10 @@ if __name__ == "__main__":
     
     # year range for url, REMINDER: start at 1960
     years = range(1960,2017+1)
+    
+    # top level list of dict (json array)
+    top_json_short = []
+    top_json_abstract = []
     
     # create pool
     with multiprocessing.Pool(processes=NUM_PROCESS, maxtasksperchild=None) as pool:
@@ -198,36 +206,53 @@ if __name__ == "__main__":
             xml_partition = [ xml_list[nfile:nfile+num_file_partition] for nfile in intervals ]
     
             # number of task to distribute among cores
-            num_task = len(xml_partition)
+            num_partition = len(xml_partition)
     
             # number of file in last task (most likely different from num_file_partition)
             num_lastfile_partition = len(xml_partition[-1])
     
             # feed pool with all files from current year by partition
             pool_results = pool.map(read_extract, xml_partition)
+            
+            # pool_results is a list of num_partition elements
+            # each element is a tuple (short, abstract)
+            # short and abstract each contains a list of dict
             unstacked_pool_results = list(chain.from_iterable(pool_results))
+            
+            # unstacked_pool_results is a list short and abstract alternatively
+            # slice list to separate short and abstract
             pool_short = unstacked_pool_results[::2]
             pool_abstract = unstacked_pool_results[1::2]
     
-            # undo partition
-            short_element = list(chain.from_iterable(pool_short))
-            abstract = list(chain.from_iterable(pool_abstract))
+            # pool_short has num_file_partition list of dictionary
+            # consolidate all list of dict into one
+            # and extend our existing list
+            top_json_short.extend(list(chain.from_iterable(pool_short)))
+            top_json_abstract.extend(list(chain.from_iterable(pool_abstract)))
     
-            # write dict to file
-            with open(short_elements_output, "a", encoding='utf-8') as f:
-                json.dump(short_element, f, ensure_ascii=False)
-    
-            with open(abstract_output, "a", encoding='utf-8') as f:
-                json.dump(abstract, f, ensure_ascii=False)
+#            # write dict to file
+#            with open(short_elements_output, "a", encoding='utf-8') as f:
+#                json.dump(short_element, f, ensure_ascii=False)
+#    
+#            with open(abstract_output, "a", encoding='utf-8') as f:
+#                json.dump(abstract, f, ensure_ascii=False)
     
             # file counters
-            filecount += (num_task - 1)*num_file_partition + num_lastfile_partition
+            filecount += (num_partition - 1)*num_file_partition + num_lastfile_partition
             cumfilecount += filecount
     
             # print progress
             print('\rYear {}, File #{:6d},Total File {:6d}'.format(y,
                   filecount, cumfilecount) ,end='', flush=True)
 
+    # write list of dict to file
+    short_elements_output = os.path.join(os.pardir,'data', 'interim', 'short_elements.json')   
+    with open(short_elements_output, "w", encoding='utf-8') as f:
+        json.dump(top_json_short, f, ensure_ascii=False)
+
+    abstract_output = os.path.join(os.pardir,'data', 'interim', 'abstracts.json')
+    with open(abstract_output, "w", encoding='utf-8') as f:
+        json.dump(top_json_abstract, f, ensure_ascii=False)
 
     # closing print statement
     print('\rYear {}, File #{:6d},Total File {:6d}'.format(y, filecount, cumfilecount), end='\n', flush=True)
