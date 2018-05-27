@@ -112,10 +112,11 @@ def extract_xml_tag(input_xml, filename):
 #        shortinfo[award_id] = award_elements
         
         # take care of abstract
+        abstract['award_id'] = award_id
         this_abstract = input_soup.find('AbstractNarration').text
         # make sure abstract is not empty (tag can exist but text associated with it)
         if not not this_abstract:
-            abstract[award_id] = this_abstract
+            abstract['abstract'] = this_abstract
     except:
         warnings.warn(
                 'File {} does not comply with xml schema! It will be skipped'.format(os.path.basename(filename)), UserWarning)
