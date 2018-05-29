@@ -114,7 +114,7 @@ def extract_xml_tag(input_xml, filename):
         # take care of abstract
         abstract['award_id'] = award_id
         this_abstract = input_soup.find('AbstractNarration').text
-        # make sure abstract is not empty (tag can exist but text associated with it)
+        # make sure abstract is not empty (tag can exist but no text associated with it)
         if not not this_abstract:
             abstract['abstract'] = this_abstract
     except:
