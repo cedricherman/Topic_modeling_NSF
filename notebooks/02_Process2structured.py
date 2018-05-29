@@ -47,12 +47,14 @@ def extract_xml_tag(input_xml, filename):
         award_elements['eff_date'] = input_soup.find('AwardEffectiveDate').text
         award_elements['exp_date'] = input_soup.find('AwardExpirationDate').text 
         amount_string = input_soup.find('AwardAmount').text
+        if not not amount_string:
         # attempt to convert amount to integer
-        try:
-            award_elements['amount'] = int(amount_string)
-        except:
-            award_elements['amount'] = amount_string
-            warnings.warn('Could NOT convert awarded amount {} to an integer'.format(amount_string), UserWarning)
+            try:
+                award_elements['amount'] = int(amount_string)
+            except:
+                award_elements['amount'] = amount_string
+                warnings.warn(
+                'Could NOT convert awarded amount {} to an integer'.format(amount_string), UserWarning)
 
         # award type
         award_elements['award_instr'] = input_soup.find('AwardInstrument').find('Value').text
